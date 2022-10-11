@@ -1,45 +1,45 @@
-# Neon Corsair
+# testcontainers-cloud-java-sample
 
-A single-page space-pirate arcade game. Collect cyan data shards, dodge orange mines, and survive the 45-second nebula run.
+The current repository helps you to verify that you configured your [Testcontainers Cloud][tcc] agent correctly in your local environment.
 
-## Play locally
+## Clone the repository
 
-```sh
-npm install
-npm run dev
+```
+git clone https://github.com/AtomicJar/testcontainers-cloud-java-sample
+cd testcontainers-cloud-java-sample
 ```
 
-Steer with **← / →** or **A / D**. On touch screens, use the on-screen arrow buttons. Press **P** or **Escape** to pause. Your best run is saved in your browser.
+## Verify the agent is running
 
-## Production build
+✅ __Passive State__: Agent awaiting a Testcontainers test to be executed. 
 
-```sh
-npm run build
-npm run preview
-```
+![agent-running](./docs/passive-connection.png)
 
-The static production site is generated in `dist/`.
+✅ __Running State__: Agent connected to Testcontainers Cloud.
 
-## Deploy to AWS
+![agent-running](./docs/active-connection.png)
 
-The CloudFormation template provisions a private, encrypted S3 bucket and a CloudFront distribution with HTTPS redirection, origin access control, and browser security headers. The bucket is retained if the stack is deleted.
+⚠️ __Stopped State__: Agent is stopped and will not accept connections.
 
-1. Build a deployment bundle:
+Please, Start the agent to continue.
 
-   ```sh
-   npm run bundle:aws
-   ```
+![agent-stopped](./docs/stopped.png)
 
-2. Sign in to the AWS Console, select **us-east-2 (Ohio)**, and open **CloudShell**.
-3. In CloudShell, choose **Actions → Upload file** and upload `neon-corsair-aws-deploy.zip`.
-4. Run:
+To download the agent for local usage, check the [download page here][tcc-download].
 
-   ```sh
-   unzip -o neon-corsair-aws-deploy.zip -d neon-corsair
-   cd neon-corsair
-   bash deploy.sh
-   ```
+## Run the test suite
 
-CloudShell uses the signed-in AWS identity. It needs permission to create and update the stack and its S3 and CloudFront resources. The script prints the public game URL when deployment completes. Subsequent runs update the same stack and site; set `STACK_NAME` to use a different stack name.
+`./gradlew test`
 
-S3 storage/requests and CloudFront requests/data transfer may incur AWS charges. The distribution uses the `PriceClass_100` edge-location group. Deleting the stack intentionally retains the S3 bucket and game files; empty and delete that bucket separately if you want to remove all related storage.
+### Your environment is correctly configured if
+
+Test output:
+
+![success](./docs/success.png)
+
+Agent status:
+
+![agent-running](./docs/active-connection.png)
+
+[tcc]: https://testcontainers.cloud/
+[tcc-download]: https://app.testcontainers.cloud/start/download?mode=update
