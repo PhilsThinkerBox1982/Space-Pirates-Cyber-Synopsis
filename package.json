@@ -1,0 +1,26 @@
+{
+  "name": "space-pirates-cyber-synopsis",
+  "version": "1.0.0",
+  "description": "Fictional story of video game characters Cannonballhead and JadeRed https://www.blackoctopuscartoons.com/p/synopsis.html",
+  "main": "script.js",
+  "scripts": {
+    "dev": "vite",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PhilsThinkerBox1982/Space-Pirates-Cyber-Synopsis.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/PhilsThinkerBox1982/Space-Pirates-Cyber-Synopsis/issues"
+  },
+  "homepage": "https://github.com/PhilsThinkerBox1982/Space-Pirates-Cyber-Synopsis#readme",
+  "devDependencies": {
+    "live-server": "^1.2.2",
+    "vite": "^8.2.2"
+  }
+}
