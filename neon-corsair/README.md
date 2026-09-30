@@ -30,7 +30,7 @@ The CloudFormation template provisions a private, encrypted S3 bucket and a Clou
    npm run bundle:aws
    ```
 
-2. Sign in to the AWS Console, select **us-east-2 (Ohio)**, and open **CloudShell**.
+2. Sign in to the AWS Console, select **us-east-1**, and open **CloudShell**.
 3. In CloudShell, choose **Actions → Upload file** and upload `neon-corsair-aws-deploy.zip`.
 4. Run:
 
