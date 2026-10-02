@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Sail the neon nebula, collect data shards, and dodge the space mines in Neon Corsair."
+    />
+    <meta name="theme-color" content="#080b17" />
+    <title>Neon Corsair — Data Run</title>
+    <script type="module" crossorigin src="/assets/index-WYDSZfay.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-23AqAkpz.css">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="topbar">
+        <a class="wordmark" href="/" aria-label="Neon Corsair home">
+          <span class="wordmark-mark" aria-hidden="true">✦</span>
+          <span>BLACK OCTOPUS <span class="wordmark-divider">/</span> ARCADE</span>
+        </a>
+        <span class="topbar-status"><span class="status-dot"></span> SECTOR 07 // ONLINE</span>
+      </header>
+
+      <section class="game-layout" aria-labelledby="game-title">
+        <div class="game-column">
+          <div class="intro">
+            <p class="eyebrow"><span>01</span> &nbsp; A SPACE PIRATES MINI-GAME</p>
+            <h1 id="game-title">NEON <span>CORSAIR</span></h1>
+            <p class="intro-copy">The void is full of treasure. And things that go boom.</p>
+          </div>
+
+          <section class="game-frame" aria-label="Neon Corsair game">
+            <div class="game-hud">
+              <div class="hud-stat">
+                <span class="hud-label">DATA</span>
+                <strong id="score">0000</strong>
+              </div>
+              <div class="hud-stat hud-stat-center">
+                <span class="hud-label">RUN TIME</span>
+                <strong id="timer">45.0</strong>
+              </div>
+              <div class="hud-stat hud-stat-right">
+                <span class="hud-label">HULL</span>
+                <strong id="lives" aria-label="3 hull points">◆ ◆ ◆</strong>
+              </div>
+            </div>
+
+            <div class="canvas-wrap">
+              <canvas
+                id="game"
+                role="img"
+                aria-label="Your ship is centered in a starfield. Collect cyan data shards and avoid orange mines."
+              ></canvas>
+              <div class="game-overlay" id="overlay">
+                <div class="overlay-content">
+                  <span class="overlay-icon" aria-hidden="true">✦</span>
+                  <p class="eyebrow" id="overlay-eyebrow">CAPTAIN, WE HAVE A SIGNAL</p>
+                  <h2 id="overlay-title">Ready to run?</h2>
+                  <p class="overlay-copy" id="overlay-copy">
+                    Grab the data shards. Give the mines a wide berth.
+                  </p>
+                  <button class="primary-button" id="start-button" type="button">
+                    <span id="start-label">LAUNCH RUN</span><span aria-hidden="true">↗</span>
+                  </button>
+                  <p class="control-hint" id="control-hint">← → or A D to steer <span>·</span> P to pause</p>
+                </div>
+              </div>
+              <div class="game-toast" id="toast" aria-hidden="true"></div>
+            </div>
+
+            <div class="game-footer">
+              <span><span class="footer-sparkle">✦</span> DATA SHARD <b>+100</b></span>
+              <span><span class="footer-mine">✹</span> SPACE MINE <b>−1 HULL</b></span>
+              <button class="pause-button" id="pause-button" type="button" aria-label="Pause game" disabled>
+                PAUSE <span aria-hidden="true">Ⅱ</span>
+              </button>
+            </div>
+          </section>
+
+          <div class="mobile-controls" aria-label="Touch movement controls">
+            <button type="button" data-move="-1" aria-label="Steer left">←</button>
+            <span>STEER</span>
+            <button type="button" data-move="1" aria-label="Steer right">→</button>
+          </div>
+        </div>
+
+        <aside class="side-column" aria-label="Mission briefing">
+          <section class="briefing-card">
+            <div class="card-topline"><span>MISSION BRIEF</span><span class="briefing-number">#07</span></div>
+            <div class="briefing-art" aria-hidden="true">
+              <span class="orbit orbit-one"></span>
+              <span class="orbit orbit-two"></span>
+              <span class="planet"></span>
+              <span class="briefing-star star-one">✦</span>
+              <span class="briefing-star star-two">✧</span>
+              <span class="briefing-star star-three">·</span>
+              <span class="briefing-art-label">THE<br />NEBULA<br />RUN</span>
+            </div>
+            <h2>One last score.</h2>
+            <p>A distress beacon is hiding in the nebula. Scoop up its data before the patrol mines turn your ship into stardust.</p>
+            <div class="briefing-divider"></div>
+            <div class="briefing-detail"><span>OBJECTIVE</span><b>Collect data</b></div>
+            <div class="briefing-detail"><span>THREAT</span><b class="threat-level">Minefield / high</b></div>
+            <div class="briefing-detail"><span>BEST RUN</span><b id="best-score">0000</b></div>
+          </section>
+
+          <section class="tip-card">
+            <span class="tip-icon" aria-hidden="true">↗</span>
+            <div>
+              <p class="tip-label">FLIGHT TIP</p>
+              <p class="tip-copy">Keep moving. The minefield gets denser the longer you survive.</p>
+            </div>
+          </section>
+          <p class="build-tag">BUILT FOR THE BRAVE <span>✦</span></p>
+        </aside>
+      </section>
+
+      <footer class="site-footer">
+        <span>BLACK OCTOPUS CARTOONS</span>
+        <span>NO MAP. NO MERCY. JUST ONE MORE RUN.</span>
+      </footer>
+      <p class="visually-hidden" id="game-status" aria-live="polite"></p>
+    </main>
+  </body>
+</html>
