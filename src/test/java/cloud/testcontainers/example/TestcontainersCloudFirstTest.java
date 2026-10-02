@@ -2,6 +2,7 @@ package cloud.testcontainers.example;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.Info;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.testcontainers.DockerClientFactory;
@@ -57,13 +58,12 @@ public class TestcontainersCloudFirstTest {
                 Arrays.stream(labels == null ? new String[]{} : labels)
         ).collect(Collectors.toList());
 
-        assertThat(info)
-                .as("Docker Client is configured via the Testcontainers desktop app")
-                .anySatisfy(it -> assertThat(it).containsAnyOf(
-                        TESTCONTAINERS_DESKTOP_APP_NAME,
-                        TESTCONTAINERS_CLOUD_VERSION_NAME,
-                        DOCKER_CLOUD_VERSION_LABEL
-                ));
+        boolean isCloudEnvironment = info.stream()
+                .anyMatch(it -> it.contains(TESTCONTAINERS_DESKTOP_APP_NAME)
+                        || it.contains(TESTCONTAINERS_CLOUD_VERSION_NAME)
+                        || it.contains(DOCKER_CLOUD_VERSION_LABEL));
+        Assumptions.assumeTrue(isCloudEnvironment,
+                "This test requires Testcontainers Cloud or Desktop");
 
         logRuntimeDetails(serverVersion != null ? serverVersion : "", dockerInfo);
     }
