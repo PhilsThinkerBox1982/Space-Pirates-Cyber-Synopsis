@@ -1,13 +1,15 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Hosts Neon Corsair as a static game — private S3 origin delivered over HTTPS by CloudFront."
+Description: "Hosts Neon Corsair and a shared leaderboard — private static assets with a public, throttled score API."
 Metadata:
   AWSToolsMetrics:
     AWSAgentToolkit: aws-cloudformation@v3
   com.aws.cloudformation.Context:
-    arch: "Private S3 bucket -> CloudFront OAC -> HTTPS browser game."
+    arch: "Private S3 -> CloudFront OAC; public HTTP API -> Lambda -> DynamoDB."
     must:
       - "Keep S3 public access blocked; grant reads only to this distribution."
       - "Keep bucket data retained if the stack is deleted."
+      - "Treat public leaderboard scores as untrusted client submissions."
+Transform: AWS::Serverless-2016-10-31
 Resources:
   SiteBucket:
     Type: AWS::S3::Bucket
@@ -33,6 +35,143 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+  LeaderboardTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: "Stores one best score per anonymous browser; a sparse GSI serves the global top ten."
+        must:
+          - "Retain submitted scores on stack deletion or table replacement."
+          - "Keep the score query bounded to ten GSI results."
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      AttributeDefinitions:
+        - AttributeName: PlayerId
+          AttributeType: S
+        - AttributeName: BoardId
+          AttributeType: S
+        - AttributeName: ScoreKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PlayerId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ScoresByBoard
+          KeySchema:
+            - AttributeName: BoardId
+              KeyType: HASH
+            - AttributeName: ScoreKey
+              KeyType: RANGE
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - Score
+              - UpdatedAt
+  LeaderboardFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: "Validates public score requests and uses conditional writes to preserve each browser's best score."
+        must:
+          - "Keep DynamoDB permissions limited to the leaderboard table."
+          - "Keep reserved concurrency to limit the blast radius of public traffic."
+          - "Do not treat client-reported scores as cheat-proof."
+    Properties:
+      CodeUri: leaderboard/
+      Handler: index.handler
+      Runtime: nodejs22.x
+      Timeout: 5
+      MemorySize: 256
+      ReservedConcurrentExecutions: 5
+      Environment:
+        Variables:
+          LEADERBOARD_TABLE: !Ref LeaderboardTable
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: SubmitAndReadLeaderboard
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:Query
+              Resource: !GetAtt LeaderboardTable.Arn
+  LeaderboardApi:
+    Type: AWS::ApiGatewayV2::Api
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: "Public browser API; wildcard CORS supports the Codespaces preview and static CloudFront site."
+        must:
+          - "Keep the API limited to score submission and leaderboard reads."
+          - "Do not enable credentialed CORS for this anonymous API."
+    Properties:
+      Name: !Sub "${AWS::StackName}-leaderboard"
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - content-type
+  LeaderboardIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref LeaderboardApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt LeaderboardFunction.Arn
+      PayloadFormatVersion: "2.0"
+  GetLeaderboardRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref LeaderboardApi
+      RouteKey: "GET /api/leaderboard"
+      Target: !Sub "integrations/${LeaderboardIntegration}"
+  SubmitLeaderboardRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref LeaderboardApi
+      RouteKey: "POST /api/leaderboard"
+      Target: !Sub "integrations/${LeaderboardIntegration}"
+  LeaderboardApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    DependsOn:
+      - GetLeaderboardRoute
+      - SubmitLeaderboardRoute
+    Properties:
+      ApiId: !Ref LeaderboardApi
+      StageName: "$default"
+      AutoDeploy: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt LeaderboardApiLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength","integrationLatency":"$context.integrationLatency"}
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+  LeaderboardApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: "Retains minimal API request diagnostics for two weeks without logging client addresses or score bodies."
+        must:
+          - "Keep access logs free of request bodies and client-identifying headers."
+    Properties:
+      LogGroupName: !Sub "/aws/apigateway/${AWS::StackName}-leaderboard"
+      RetentionInDays: 14
+  LeaderboardApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LeaderboardFunction
+      Principal: apigateway.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${LeaderboardApi}/*/*/api/leaderboard"
   SiteOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Metadata:
@@ -59,7 +198,7 @@ Resources:
         Comment: "Security headers for Neon Corsair static hosting."
         SecurityHeadersConfig:
           ContentSecurityPolicy:
-            ContentSecurityPolicy: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; img-src 'self' data:; font-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'"
+            ContentSecurityPolicy: !Sub "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; img-src 'self' data:; font-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://${LeaderboardApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"
             Override: true
           ContentTypeOptions:
             Override: true
@@ -94,12 +233,39 @@ Resources:
         HttpVersion: http2
         IPV6Enabled: true
         PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+          MinimumProtocolVersion: TLSv1.2_2021
         Origins:
           - Id: GameAssets
             DomainName: !GetAtt SiteBucket.RegionalDomainName
             OriginAccessControlId: !Ref SiteOriginAccessControl
             S3OriginConfig:
               OriginAccessIdentity: ""
+          - Id: LeaderboardApi
+            DomainName: !Sub "${LeaderboardApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: LeaderboardApi
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
         DefaultCacheBehavior:
           TargetOriginId: GameAssets
           ViewerProtocolPolicy: redirect-to-https
@@ -143,7 +309,7 @@ Resources:
               - !Sub "${SiteBucket.Arn}/*"
             Condition:
               Bool:
-                aws:SecureTransport: "false"
+                aws:SecureTransport: false
 Outputs:
   SiteBucketName:
     Description: "Private S3 bucket containing the built game."
@@ -154,3 +320,6 @@ Outputs:
   GameUrl:
     Description: "Public HTTPS URL for Neon Corsair."
     Value: !Sub "https://${SiteDistribution.DomainName}"
+  LeaderboardApiUrl:
+    Description: "Regional HTTP API base URL for the shared leaderboard."
+    Value: !Sub "https://${LeaderboardApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"

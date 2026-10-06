@@ -3,21 +3,31 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-if [[ ! -f dist/index.html ]]; then
-  echo "Missing dist/index.html. Run npm run build before bundling this deployment." >&2
+AWS_DEFAULT_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-$(aws configure get region 2>/dev/null || true)}}"
+if [[ -z "$AWS_DEFAULT_REGION" ]]; then
+  echo "Set AWS_REGION or AWS_DEFAULT_REGION to the project's selected Region before deploying." >&2
   exit 1
 fi
 
-export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-2}"
+export AWS_DEFAULT_REGION
 STACK_NAME="${STACK_NAME:-neon-corsair-site}"
 
 aws sts get-caller-identity >/dev/null
-aws cloudformation deploy \
-  --template-file template.yaml \
+sam build --template-file template.yaml
+sam deploy \
+  --template-file .aws-sam/build/template.yaml \
   --stack-name "$STACK_NAME" \
   --region "$AWS_DEFAULT_REGION" \
+  --resolve-s3 \
+  --capabilities CAPABILITY_IAM \
+  --no-confirm-changeset \
   --no-fail-on-empty-changeset
 
+LEADERBOARD_API_URL="$(aws cloudformation describe-stacks \
+  --stack-name "$STACK_NAME" \
+  --region "$AWS_DEFAULT_REGION" \
+  --query "Stacks[0].Outputs[?OutputKey=='LeaderboardApiUrl'].OutputValue | [0]" \
+  --output text)"
 BUCKET_NAME="$(aws cloudformation describe-stacks \
   --stack-name "$STACK_NAME" \
   --region "$AWS_DEFAULT_REGION" \
@@ -34,6 +44,12 @@ GAME_URL="$(aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs[?OutputKey=='GameUrl'].OutputValue | [0]" \
   --output text)"
 
+if [[ -z "$LEADERBOARD_API_URL" || "$LEADERBOARD_API_URL" == "None" ]]; then
+  echo "CloudFormation did not return a leaderboard API URL." >&2
+  exit 1
+fi
+
+npm run build
 aws s3 sync dist/ "s3://${BUCKET_NAME}/" \
   --region "$AWS_DEFAULT_REGION" \
   --delete \
@@ -47,4 +63,4 @@ aws cloudfront create-invalidation \
   --distribution-id "$DISTRIBUTION_ID" \
   --paths "/*" >/dev/null
 
-printf '\nDeployment complete.\nGame URL: %s\n' "$GAME_URL"
+printf '\nDeployment complete.\nGame URL: %s\nLeaderboard API: %s\n' "$GAME_URL" "$LEADERBOARD_API_URL"

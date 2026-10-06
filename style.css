@@ -394,6 +394,72 @@ canvas {
   background: linear-gradient(150deg, rgba(20, 24, 47, 0.93), rgba(13, 16, 32, 0.93));
 }
 
+.leaderboard-card {
+  margin-top: 13px;
+  padding: 16px 18px;
+  border: 1px solid rgba(131, 245, 229, 0.2);
+  border-radius: 5px;
+  background: linear-gradient(150deg, rgba(16, 30, 39, 0.92), rgba(13, 16, 32, 0.93));
+}
+
+.leaderboard-card h2 {
+  margin: 14px 0 10px;
+  font-size: 16px;
+  letter-spacing: -0.035em;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leaderboard-list li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 27px;
+  border-bottom: 1px solid rgba(160, 169, 220, 0.09);
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.leaderboard-rank {
+  color: #777f98;
+}
+
+.leaderboard-player {
+  overflow: hidden;
+  color: #c6c9d7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-score {
+  color: var(--cyan);
+  font-weight: 500;
+}
+
+.leaderboard-list .leaderboard-empty {
+  display: block;
+  padding: 8px 0;
+  border: 0;
+  color: #9296ab;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.leaderboard-status {
+  min-height: 1em;
+  margin: 11px 0 0;
+  color: #7c8096;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
 .card-topline {
   display: flex;
   justify-content: space-between;

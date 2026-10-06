@@ -4,6 +4,8 @@ const scoreElement = document.querySelector("#score");
 const timerElement = document.querySelector("#timer");
 const livesElement = document.querySelector("#lives");
 const bestScoreElement = document.querySelector("#best-score");
+const leaderboardListElement = document.querySelector("#leaderboard-list");
+const leaderboardStatusElement = document.querySelector("#leaderboard-status");
 const overlay = document.querySelector("#overlay");
 const overlayEyebrow = document.querySelector("#overlay-eyebrow");
 const overlayTitle = document.querySelector("#overlay-title");
@@ -16,6 +18,9 @@ const toast = document.querySelector("#toast");
 
 const RUN_LENGTH = 45;
 const PLAYER_RADIUS = 19;
+const PLAYER_ID_KEY = "neon-corsair-player-id";
+const LEADERBOARD_API_BASE_URL = (import.meta.env.VITE_LEADERBOARD_API_URL || "").replace(/\/+$/, "");
+const LEADERBOARD_URL = `${LEADERBOARD_API_BASE_URL}/api/leaderboard`;
 const keys = new Set();
 const touchDirections = new Map();
 
@@ -44,6 +49,106 @@ bestScoreElement.textContent = formatScore(bestScore);
 
 function formatScore(value) {
   return String(value).padStart(4, "0");
+}
+
+function getPlayerId() {
+  try {
+    const savedPlayerId = window.localStorage.getItem(PLAYER_ID_KEY);
+    if (savedPlayerId && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(savedPlayerId)) {
+      return savedPlayerId;
+    }
+
+    const playerId = window.crypto.randomUUID();
+    window.localStorage.setItem(PLAYER_ID_KEY, playerId);
+    return playerId;
+  } catch (error) {
+    console.warn("Could not persist a leaderboard player ID.", error);
+    return window.crypto.randomUUID();
+  }
+}
+
+function renderLeaderboard(entries) {
+  leaderboardListElement.replaceChildren();
+  if (entries.length === 0) {
+    const emptyEntry = document.createElement("li");
+    emptyEntry.className = "leaderboard-empty";
+    emptyEntry.textContent = "No scores yet. Set the first record.";
+    leaderboardListElement.append(emptyEntry);
+    return;
+  }
+
+  for (const [index, entry] of entries.entries()) {
+    const row = document.createElement("li");
+    const rank = document.createElement("span");
+    const player = document.createElement("span");
+    const scoreValue = document.createElement("strong");
+    rank.className = "leaderboard-rank";
+    player.className = "leaderboard-player";
+    scoreValue.className = "leaderboard-score";
+    rank.textContent = String(index + 1).padStart(2, "0");
+    player.textContent = entry.player;
+    scoreValue.textContent = formatScore(entry.score);
+    row.append(rank, player, scoreValue);
+    leaderboardListElement.append(row);
+  }
+}
+
+async function loadLeaderboard() {
+  leaderboardStatusElement.textContent = "Fetching shared scores.";
+  try {
+    const response = await fetch(LEADERBOARD_URL, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      throw new Error(`Leaderboard request failed with HTTP ${response.status}.`);
+    }
+
+    const result = await response.json();
+    if (!Array.isArray(result.entries)) {
+      throw new Error("Leaderboard response did not contain a score list.");
+    }
+    renderLeaderboard(result.entries);
+    leaderboardStatusElement.textContent = result.entries.length
+      ? "Scores are shared across all players."
+      : "No scores yet. Set the first record.";
+    return true;
+  } catch (error) {
+    console.error("Could not load the shared leaderboard.", error);
+    leaderboardListElement.replaceChildren();
+    const errorEntry = document.createElement("li");
+    errorEntry.className = "leaderboard-empty";
+    errorEntry.textContent = "Shared scores are unavailable right now.";
+    leaderboardListElement.append(errorEntry);
+    leaderboardStatusElement.textContent = "Could not connect to the leaderboard.";
+    return false;
+  }
+}
+
+async function submitLeaderboardScore(finalScore) {
+  if (finalScore <= 0) return;
+
+  const response = await fetch(LEADERBOARD_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      playerId: getPlayerId(),
+      score: finalScore,
+    }),
+  });
+
+  if (response.status === 409) {
+    if (await loadLeaderboard()) {
+      leaderboardStatusElement.textContent = "Your browser already has an equal or higher shared score.";
+    }
+    return;
+  }
+  if (!response.ok) {
+    throw new Error(`Score submission failed with HTTP ${response.status}.`);
+  }
+
+  if (await loadLeaderboard()) {
+    leaderboardStatusElement.textContent = "Score submitted to the global leaderboard.";
+  }
 }
 
 function announce(message) {
@@ -136,6 +241,10 @@ function finishRun(won) {
     : `You recovered ${formatScore(score)} data before the mines got you.`;
   showOverlay(isNewBest ? "NEW PERSONAL BEST" : result.toUpperCase(), won ? "Clean getaway." : "That got messy.", copy, "RUN IT BACK");
   announce(`${result}. Final score: ${score}.${isNewBest ? " New personal best." : ""}`);
+  submitLeaderboardScore(score).catch((error) => {
+    console.error("Could not submit the score to the shared leaderboard.", error);
+    leaderboardStatusElement.textContent = "Score saved locally, but could not be shared.";
+  });
 }
 
 function spawnObject() {
@@ -355,4 +464,5 @@ for (const button of document.querySelectorAll("[data-move]")) {
 
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
+void loadLeaderboard();
 requestAnimationFrame(frame);

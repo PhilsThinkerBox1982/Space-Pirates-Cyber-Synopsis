@@ -149,3 +149,7 @@ Temporary Items
 
 ### Maven ###
 **/target/
+
+### Serverless build artifacts ###
+**/node_modules/
+/.aws-sam/
